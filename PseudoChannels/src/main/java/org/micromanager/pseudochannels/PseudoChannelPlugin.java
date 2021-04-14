@@ -75,7 +75,7 @@ public class PseudoChannelPlugin implements ProcessorPlugin, SciJavaPlugin {
 
    @Override
    public String getCopyright() {
-      return "Copyright EPFL, 2021";
+      return "Copyright Willi Stepp EPFL, 2021";
    }
 
    public String setSettings(Studio studio, int channels) {
