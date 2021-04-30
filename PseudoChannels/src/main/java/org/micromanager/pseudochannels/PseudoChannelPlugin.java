@@ -78,18 +78,6 @@ public class PseudoChannelPlugin implements ProcessorPlugin, SciJavaPlugin {
       return "Copyright Willi Stepp EPFL, 2021";
    }
 
-   public String setSettings(Studio studio, int channels) {
-      // Get the instance of the PseudoChannels that is in the pipeline
-      // TODO: This should go through the list and check until it finds the correct configurator
-      DataManager data = studio.data();
-      List<ProcessorConfigurator> pipeline = data.getApplicationPipelineConfigurators(true);
-      PseudoChannelConfigurator pseudo = (PseudoChannelConfigurator) pipeline.get(0);
-      // Set the channels
-      pseudo.setChannels(channels);
-      System.out.println(pipeline);
-      return "Done";
-   }
-
    public ProcessorConfigurator getConfigurator(int channels, int slices, boolean useSlices) {
       PropertyMap.Builder builder = PropertyMaps.builder();
       builder.putInteger("channels", channels);

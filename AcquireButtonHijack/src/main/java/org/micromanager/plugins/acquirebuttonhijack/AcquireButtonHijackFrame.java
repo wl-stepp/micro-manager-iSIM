@@ -22,12 +22,14 @@ package org.micromanager.plugins.acquirebuttonhijack;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.beans.PropertyChangeEvent;
 import javax.swing.*;
 
 
 import org.micromanager.acquisition.SequenceSettings;
 import org.micromanager.internal.MMStudio;
 import org.micromanager.internal.dialogs.AcqControlDlg;
+import org.micromanager.internal.dialogs.*;
 
 import org.micromanager.Studio;
 
@@ -46,13 +48,14 @@ import org.micromanager.Studio;
 public class AcquireButtonHijackFrame extends JFrame {
 
    private Studio studio_;
+   private AcqControlDlg acw_;
 
    public AcquireButtonHijackFrame(Studio studio) {
       super("AcquireButtonHijack");
       studio_ = studio;
       // Get the Acquire! Button and strip of the functionality, so we can put something of our own.
-      AcqControlDlg acw = ((MMStudio) studio_).uiManager().getAcquisitionWindow();
-      JPanel panel0 = (JPanel) acw.getContentPane().getComponent(0);
+      acw_ = ((MMStudio) studio_).uiManager().getAcquisitionWindow();
+      JPanel panel0 = (JPanel) acw_.getContentPane().getComponent(0);
       JPanel panel1 =(JPanel) panel0.getComponent(2);
       JPanel panel2 = (JPanel) panel1.getComponent(1);
       JButton button = (JButton) panel2.getComponent(0);
@@ -77,13 +80,18 @@ public class AcquireButtonHijackFrame extends JFrame {
    public class acqThread extends Thread{
       public void run(){
          System.out.println("ACQ running");
+         // Call applySettingsfromGUI with a small trick
+         PropertyChangeEvent e = new PropertyChangeEvent(1, "test",0,1);
+         acw_.propertyChange(e);
          SequenceSettings settings = studio_.acquisitions().getAcquisitionSettings();
          if (settings.useChannels()){
-            SequenceSettings new_settings = settings.copyBuilder().useChannels(false).numFrames(settings.numFrames()*2).build();
+            SequenceSettings new_settings = settings.copyBuilder().useChannels(false).numFrames(settings.numFrames()*2).intervalMs(0).build();
             studio_.acquisitions().runAcquisitionWithSettings(new_settings,false);
             studio_.acquisitions().setAcquisitionSettings(settings);
          } else {
-            studio_.acquisitions().runAcquisition();
+            SequenceSettings new_settings = settings.copyBuilder().intervalMs(0).build();
+            studio_.acquisitions().runAcquisitionWithSettings(new_settings,false);
+            studio_.acquisitions().setAcquisitionSettings(settings);
          }
       }
    }
