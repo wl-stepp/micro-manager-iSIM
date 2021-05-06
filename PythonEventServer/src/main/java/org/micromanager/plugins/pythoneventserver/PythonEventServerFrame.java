@@ -1,7 +1,6 @@
 
 package org.micromanager.plugins.pythoneventserver;
 
-
 import com.google.common.eventbus.Subscribe;
 import mmcorej.CMMCore;
 import mmcorej.org.json.JSONArray;
@@ -32,12 +31,29 @@ import java.util.Iterator;
 
 import static org.zeromq.ZMQ.*;
 
-// Imports for MMStudio internal packages
-// Plugins should not access internal packages, to ensure modularity and
-// maintainability. However, this plugin code is older than the current
-// MMStudio API, so it still uses internal classes and interfaces. New code
-// should not imitate this practice.
-
+/**
+ * ZMQ based Server that relays Micro-Manager events to python
+ * <p>
+ * THis is called and started when PyhtonEventServer Plugin is
+ * started from Micro-Manager. It starts a Thread that uses a
+ * ZMQ PUB socket to publish events that can be subscribed to from
+ * python. This can run in parallel with pycromanager to make use
+ * of those events.
+ * <p>
+ * To get the events, the thread implements AcqSettingsListener and
+ * subscribes to the EventBus via the EventManager of Micro-Manager.
+ * When a event is received it relays the same event to the custom
+ * socket. Exceptions are GUIRefreshEvents, that try to get info
+ * from the Configuration settings to see if it was triggered by
+ * a change there. It then sends out this information using the
+ * CustomSettinsEvent class. This is because there does not seem
+ * to be another event triggered by that.
+ * The other exception are changes in theMDA window, where the
+ * AcqSettingsListener is notified and just sends the full Settings.
+ *
+ * @author Willi Stepp
+ * @version 0.1
+ */
 
 public class PythonEventServerFrame extends JFrame {
 
@@ -194,10 +210,6 @@ public class PythonEventServerFrame extends JFrame {
          addLog("CustomMDAEvent");
       }
 
-//      @Subscribe
-//      public void onPropertiesChanged(PropertiesChangedEvent event) {
-//         addLog("PropertiesChangedEvent");
-//      }
 
       @Subscribe
       public void onExposureChanged(ExposureChangedEvent event) {
@@ -248,7 +260,6 @@ public class PythonEventServerFrame extends JFrame {
          addLog("DataProviderHasNewImageEvent");
       }
 
-
       @Subscribe
       public void onLiveMode(LiveModeEvent event) {
          if (event.isOn()) {
@@ -259,9 +270,6 @@ public class PythonEventServerFrame extends JFrame {
          sendJSON(event);
          addLog("LiveModeEvent");
       }
-
-
-
 
       void addLog(String eventMsg){
          String currentText = logTextArea.getText();

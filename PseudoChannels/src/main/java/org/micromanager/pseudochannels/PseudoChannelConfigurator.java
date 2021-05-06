@@ -1,22 +1,3 @@
-///////////////////////////////////////////////////////////////////////////////
-//PROJECT:       Micro-Manager
-//SUBSYSTEM:     mmstudio
-//-----------------------------------------------------------------------------
-//
-// AUTHOR:       Chris Weisiger
-//
-// COPYRIGHT:    University of California, San Francisco, 2011, 2015
-//
-// LICENSE:      This file is distributed under the BSD license.
-//               License text is included with the source distribution.
-//
-//               This file is distributed in the hope that it will be useful,
-//               but WITHOUT ANY WARRANTY; without even the implied warranty
-//               of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-//
-//               IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-//               CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-//               INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES.
 
 package org.micromanager.pseudochannels;
 
@@ -38,11 +19,7 @@ import org.micromanager.data.Coordinates;
 import org.micromanager.internal.utils.WindowPositioning;
 import org.micromanager.propertymap.MutablePropertyMapView;
 
-// Imports for MMStudio internal packages
-// Plugins should not access internal packages, to ensure modularity and
-// maintainability. However, this plugin code is older than the current
-// MMStudio API, so it still uses internal classes and interfaces. New code
-// should not imitate this practice.
+
 
 public class PseudoChannelConfigurator extends JFrame implements ProcessorConfigurator {
 
@@ -91,6 +68,10 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
       super.setLocation(frameXPos_, frameYPos_);
       WindowPositioning.setUpLocationMemory(this, this.getClass(), null);
 
+   }
+
+   public void showGUI(boolean show) {
+      setVisible(show);
    }
 
    @Override
@@ -210,16 +191,6 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
        return slicesTextField_.getText();
    }
 
-   /**
-    * Indicates users choice for rotation:
-    * 0 - 0 degrees
-    * 1 - 90 degrees
-    * 2 - 180 degrees
-    * 3 - 270 degrees
-    * degrees are anti-clockwise
-    * 
-    * @return coded rotation
-    */
    public final int getChannels() {
       if (C2.equals((String) channelComboBox_.getSelectedItem())) {
          return PseudoChannelProcessor.C2;
@@ -237,8 +208,6 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
       return slicesCheckBox_.isSelected();
    }
 
-
-   
    @Override
    public PropertyMap getSettings() {
       PropertyMap.Builder builder = PropertyMaps.builder(); 

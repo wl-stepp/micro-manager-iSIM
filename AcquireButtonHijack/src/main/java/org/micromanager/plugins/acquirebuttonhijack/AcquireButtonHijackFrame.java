@@ -32,17 +32,17 @@ import org.micromanager.internal.dialogs.AcqControlDlg;
 import org.micromanager.internal.dialogs.*;
 
 import org.micromanager.Studio;
-
-
-
-
-
-
-// Imports for MMStudio internal packages
-// Plugins should not access internal packages, to ensure modularity and
-// maintainability. However, this plugin code is older than the current
-// MMStudio API, so it still uses internal classes and interfaces. New code
-// should not imitate this practice.
+/**
+ * Defines the changes requested to the MDA window by AcquireButtonHIjack
+ * <p>
+ * This gets the 'Acquire!' button from the MDA window of Micro-
+ * Manager and gives it a new name to show that is is active and
+ * a new ActionCallback that adjusts things for iSIM imaging.
+ * <p>
+ *
+ * @author Willi Stepp
+ * @version 0.1
+ */
 
 
 public class AcquireButtonHijackFrame extends JFrame {

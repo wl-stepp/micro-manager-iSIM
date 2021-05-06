@@ -1,4 +1,7 @@
 package org.micromanager.plugins.pythoneventserver;
+/**
+ * Class that is used to relay Events in the Configuration settings of Micro-Manager
+ */
 
 
 public class CustomSettingsEvent {

@@ -6,6 +6,18 @@ import org.micromanager.Studio;
 import org.scijava.plugin.Plugin;
 import org.scijava.plugin.SciJavaPlugin;
 
+/**
+ * ZMQ based Plugin that relays Micro-Manager events to python
+ * <p>
+ * This is used as a MenuPlugin in Micro-Manager and calls PythonEventServerFrame.
+ * More description of how this works there. This just implements the necessary
+ * methods for being recognized as a Plugin by Micro-Manager.
+ * <p>
+ *
+ * @author Willi Stepp
+ * @version 0.1
+ */
+
 @Plugin(type = MenuPlugin.class)
 public class PythonEventServer implements SciJavaPlugin, MenuPlugin {
    private Studio studio_;
@@ -23,11 +35,6 @@ public class PythonEventServer implements SciJavaPlugin, MenuPlugin {
       studio_ = studio;
    }
 
-   /**
-    * This method is called when your plugin is selected from the Plugins menu.
-    * Typically at this time you should show a GUI (graphical user interface)
-    * for your plugin.
-    */
    @Override
    public void onPluginSelected() {
       if (frame_ == null) {
@@ -64,7 +71,7 @@ public class PythonEventServer implements SciJavaPlugin, MenuPlugin {
 
    @Override
    public String getVersion() {
-      return "2.0";
+      return "0.1";
    }
 
    @Override
