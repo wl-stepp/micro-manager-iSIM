@@ -57,7 +57,8 @@ public class PseudoChannelProcessor extends Processor {
     */
    public static Image transformImage(Studio studio, Image image,
          boolean useSlices, String slices, int channels) {
-      
+
+      int slices_int = Integer.valueOf(slices);
       ImageProcessor proc = studio.data().ij().createProcessor(image);
 
       // Insert some metadata to indicate what we did to the image.
@@ -77,10 +78,17 @@ public class PseudoChannelProcessor extends Processor {
       //Do the actual processing of the image
       Coords.Builder coordsBuilder = image.getCoords().copyBuilder();
       Coords old_coords = image.getCoords();
-      coordsBuilder.c(old_coords.getT()%channels);
-      int time = (int) java.lang.Math.floor(old_coords.getT()/channels);
+      int channel = old_coords.getT()%channels;
+      coordsBuilder.c(channel);
+
+      int zPos = (int) java.lang.Math.floor((old_coords.getT()%slices_int)/channels);
+      if (useSlices) {
+         coordsBuilder.z(zPos);
+      }
+
+      int time = (int) java.lang.Math.floor(old_coords.getT()/channels/slices_int);
       coordsBuilder.t(time);
-      System.out.println(channels);
+      System.out.println(String.format("time %d, zPos %d, channel %d",time, zPos, channel));
       Image result = studio.data().ij().createImage(proc, coordsBuilder.build(),
             newMetadata);
       return result;

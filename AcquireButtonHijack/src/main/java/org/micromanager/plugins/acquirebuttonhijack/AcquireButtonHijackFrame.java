@@ -23,6 +23,7 @@ package org.micromanager.plugins.acquirebuttonhijack;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
+import java.util.ArrayList;
 import javax.swing.*;
 
 
@@ -84,12 +85,15 @@ public class AcquireButtonHijackFrame extends JFrame {
          PropertyChangeEvent e = new PropertyChangeEvent(1, "test",0,1);
          acw_.propertyChange(e);
          SequenceSettings settings = studio_.acquisitions().getAcquisitionSettings();
+         int numSlices = settings.slices().size();
          if (settings.useChannels()){
-            SequenceSettings new_settings = settings.copyBuilder().useChannels(false).numFrames(settings.numFrames()*2).intervalMs(0).build();
+            SequenceSettings new_settings = settings.copyBuilder().useChannels(false)
+                    .numFrames(settings.numFrames()*2*numSlices).intervalMs(0).useSlices(false).slices(new ArrayList<>()).build();
             studio_.acquisitions().runAcquisitionWithSettings(new_settings,false);
             studio_.acquisitions().setAcquisitionSettings(settings);
          } else {
-            SequenceSettings new_settings = settings.copyBuilder().intervalMs(0).build();
+            SequenceSettings new_settings = settings.copyBuilder().intervalMs(0).numFrames(settings.numFrames()*numSlices)
+                    .useSlices(false).slices(new ArrayList<>()).build();
             studio_.acquisitions().runAcquisitionWithSettings(new_settings,false);
             studio_.acquisitions().setAcquisitionSettings(settings);
          }

@@ -187,6 +187,10 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
       channelComboBox_.setSelectedIndex(channels-1);
    }
 
+   public void setSlices(int slices) {slicesTextField_.setText(String.valueOf(slices));}
+
+   public void setUseSlices(boolean useSlices){slicesCheckBox_.setSelected(useSlices);}
+
    public String getSlices() {
        return slicesTextField_.getText();
    }
