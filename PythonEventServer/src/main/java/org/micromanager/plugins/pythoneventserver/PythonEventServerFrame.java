@@ -7,12 +7,16 @@ import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
 import org.micromanager.Studio;
+import org.micromanager.acquisition.AcquisitionEndedEvent;
+import org.micromanager.acquisition.AcquisitionSequenceStartedEvent;
+import org.micromanager.acquisition.AcquisitionStartedEvent;
 import org.micromanager.acquisition.SequenceSettings;
 import org.micromanager.data.DataProviderHasNewImageEvent;
 import org.micromanager.display.internal.event.DataViewerAddedEvent;
 import org.micromanager.events.*;
 import org.micromanager.internal.ConfigGroupPad;
 import org.micromanager.internal.MMStudio;
+import org.micromanager.internal.dialogs.AcqControlDlg;
 import org.micromanager.internal.interfaces.AcqSettingsListener;
 import org.micromanager.internal.utils.WindowPositioning;
 import org.micromanager.internal.zmq.ZMQUtil;
@@ -20,6 +24,7 @@ import org.zeromq.SocketType;
 
 import java.awt.event.*;
 import javax.swing.*;
+import javax.swing.text.DefaultCaret;
 import java.awt.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -42,7 +47,7 @@ import static org.zeromq.ZMQ.*;
  * <p>
  * To get the events, the thread implements AcqSettingsListener and
  * subscribes to the EventBus via the EventManager of Micro-Manager.
- * When a event is received it relays the same event to the custom
+ * When an event is received it relays the same event to the custom
  * socket. Exceptions are GUIRefreshEvents, that try to get info
  * from the Configuration settings to see if it was triggered by
  * a change there. It then sends out this information using the
@@ -57,19 +62,23 @@ import static org.zeromq.ZMQ.*;
 
 public class PythonEventServerFrame extends JFrame {
 
+   private final JCheckBox liveCheckBox_;
    private Studio studio_;
    private ConfigGroupPad pad_;
    private final JTextArea logTextArea;
+   private final JScrollPane scrollPane;
    private Socket socket_;
    private ServerThread server;
    private JPanel panel = new JPanel();
    private BoxLayout boxLayout = new BoxLayout(panel, BoxLayout.Y_AXIS);
    public ZMQUtil util_;
+   private AcqControlDlg acw_;
+   private long lastStageTime;
 
    public PythonEventServerFrame(Studio studio) {
       super("Python Event Server GUI");
       studio_ = studio;
-
+      acw_ = ((MMStudio) studio_).uiManager().getAcquisitionWindow();
       // Set up the server
       server = new ServerThread();
       server.init();
@@ -98,12 +107,21 @@ public class PythonEventServerFrame extends JFrame {
       title.setMaximumSize( new Dimension(200, 30));
       title.setAlignmentX(CENTER_ALIGNMENT);
 
+
+      liveCheckBox_ = new javax.swing.JCheckBox();
+      liveCheckBox_.setText("Live Mode Events");
+
       logTextArea = new JTextArea(30,100);
       logTextArea.setAlignmentX(CENTER_ALIGNMENT);
 
+      scrollPane = new JScrollPane( logTextArea );
+      DefaultCaret caret = (DefaultCaret)logTextArea.getCaret();
+      caret.setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
+
       panel.setLayout(boxLayout);
       panel.add(title);
-      panel.add(logTextArea);
+      panel.add(scrollPane);
+      panel.add(liveCheckBox_);
       panel.setAlignmentX(CENTER_ALIGNMENT);
 
       super.add(panel);
@@ -125,6 +143,7 @@ public class PythonEventServerFrame extends JFrame {
 
    public class ServerThread extends Thread implements AcqSettingsListener {
 
+
       public void init(){
          final Context context = context(1);
          socket_ = context.socket(SocketType.PUB);
@@ -137,13 +156,14 @@ public class PythonEventServerFrame extends JFrame {
          pad_ =  studio.uiManager().frame().getConfigPad();
 
          ((MMStudio) studio_).getAcquisitionEngine().addSettingsListener(this);
+
+         lastStageTime = System.currentTimeMillis();
       }
 
       public void close(){
          socket_.unbind("tcp://*:5556");
          socket_.close();
          studio_.events().unregisterForEvents(this);
-
          super.interrupt();
       }
 
@@ -156,7 +176,7 @@ public class PythonEventServerFrame extends JFrame {
       @Subscribe
       public void onGUIRefresh(GUIRefreshEvent event){
          // This also fires every time some value in the Table is changed, as we don't get events directly from that,
-         // we will construct out own event and send that out again over the EventBus, so that things are consistent.
+         // we will construct our own event and send that out again over the EventBus, so that things are consistent.
          String group = pad_.getSelectedGroup();
          // Get what changed from the table
          // Put this information into a List of CustomSettingsEvents for each setting that has been changed
@@ -180,6 +200,17 @@ public class PythonEventServerFrame extends JFrame {
             e.printStackTrace();
          }
 
+         if (changedSettings.isEmpty()) {
+//            No setting has changed we will send the current exposure time setting
+            double exposure = 0;
+            try {
+               exposure = studio_.core().getExposure();
+            } catch (Exception e) {
+               e.printStackTrace();
+            }
+            studio_.events().post(new CustomSettingsEvent("exposure", "time_ms", String.valueOf(exposure)));
+         }
+
          for (CustomSettingsEvent setting : changedSettings){
             studio_.events().post(setting);
          }
@@ -197,6 +228,10 @@ public class PythonEventServerFrame extends JFrame {
       @Override
       public void settingsChanged() {
          System.out.println("Setting changed");
+
+//         PropertyChangeEvent e = new PropertyChangeEvent(1, "test",0,1);
+//         acw_.propertyChange(e);
+
          SequenceSettings sequenceSettings = studio_.acquisitions().getAcquisitionSettings();
          CustomMDAEvent settingsEvent = new CustomMDAEvent(sequenceSettings);
          studio_.events().post(settingsEvent);
@@ -219,8 +254,13 @@ public class PythonEventServerFrame extends JFrame {
 
       @Subscribe
       public void onStagePositionChanged(StagePositionChangedEvent event){
+         long now = System.currentTimeMillis();
+         System.out.println(now - lastStageTime);
+
+         // Limit the frequency of these events
          sendJSON(event);
          addLog("StagePositionChangedEvent");
+         lastStageTime = now;
       }
 
       @Subscribe
@@ -261,8 +301,13 @@ public class PythonEventServerFrame extends JFrame {
       }
 
       @Subscribe
+      public void onDataViewerAddedEvent(DataViewerAddedEvent event){
+         addLog("DataViewerAddedEvent");
+      }
+
+      @Subscribe
       public void onLiveMode(LiveModeEvent event) {
-         if (event.isOn()) {
+         if (event.isOn() & liveCheckBox_.isSelected()) {
             studio_.getSnapLiveManager().getDisplay().getDataProvider().registerForEvents(this);
          } else {
             studio_.getSnapLiveManager().getDisplay().getDataProvider().unregisterForEvents(this);
@@ -271,64 +316,24 @@ public class PythonEventServerFrame extends JFrame {
          addLog("LiveModeEvent");
       }
 
+
+//      @Subscribe
+//      public void onImageOverwritten(DefaultImageOverwrittenEvent event) {
+//         sendJSON(event);
+//         addLog("ImageOverwritten");
+//      }
+
+
       void addLog(String eventMsg){
          String currentText = logTextArea.getText();
          String newEvent =  new Date() + " " + eventMsg;
          logTextArea.setText(newEvent + "\n" + currentText);
-      }
+       }
 
       public void sendJSON(Object event){
          JSONObject json = new JSONObject();
          util_.serialize(event, json, 5556);
          socket_.send("StandardEvent " + json);
-      }
-
-      public void sendMessage(JSONObject json) {
-         ArrayList<byte[]> byteData = new ArrayList<>();
-         try {
-            recurseBinaryData(byteData, json);
-         } catch (JSONException e) {
-            throw new RuntimeException(e);
-         }
-         System.out.println(json.toString());
-         System.out.println(byteData.size());
-         if (byteData.size() == 0) {
-            socket_.send(json.toString().getBytes( StandardCharsets.ISO_8859_1));
-         } else {
-            socket_.sendMore(json.toString().getBytes( StandardCharsets.ISO_8859_1));
-            for (int i = 0; i < byteData.size() - 1; i ++) {
-               socket_.sendMore(ByteBuffer.allocate(4).order(ByteOrder.nativeOrder()).putInt(
-                       System.identityHashCode(byteData.get(i))).array());
-               socket_.sendMore(byteData.get(i));
-            }
-            socket_.sendMore(ByteBuffer.allocate(4).order(ByteOrder.nativeOrder()).putInt(
-                    System.identityHashCode(byteData.get(byteData.size() - 1))).array());
-            socket_.send(byteData.get(byteData.size() - 1));
-         }
-      }
-
-      private void recurseBinaryData(ArrayList<byte[]> binaryData, Object json) throws JSONException {
-         if (json instanceof JSONObject) {
-            Iterator<String> keys = ((JSONObject) json).keys();
-            while (keys.hasNext()) {
-               String key = keys.next();
-               Object value = ((JSONObject) json).get(key);
-               if (value instanceof byte[]) {
-                  binaryData.add((byte[]) value);
-               } else if (value instanceof JSONObject ||  value instanceof JSONArray) {
-                  recurseBinaryData(binaryData, value);
-               }
-            }
-         } else if (json instanceof JSONArray) {
-            for (int i = 0; i < ((JSONArray) json).length(); i++) {
-               Object value = ((JSONArray) json).get(i);
-               if (value instanceof byte[]) {
-                  binaryData.add((byte[]) value);
-               } else if (value instanceof JSONObject ||  value instanceof JSONArray) {
-                  recurseBinaryData(binaryData, value);
-               }
-            }
-         }
       }
 
    }

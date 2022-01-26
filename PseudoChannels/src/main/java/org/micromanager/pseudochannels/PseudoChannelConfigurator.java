@@ -1,10 +1,6 @@
 
 package org.micromanager.pseudochannels;
 
-import com.bulenkov.iconloader.IconLoader;
-
-import ij.process.ByteProcessor;
-
 import java.awt.*;
 import java.util.Arrays;
 import java.util.List;
@@ -14,11 +10,10 @@ import javax.swing.*;
 import org.micromanager.PropertyMap;
 import org.micromanager.PropertyMaps;
 import org.micromanager.Studio;
+import org.micromanager.acquisition.SequenceSettings;
 import org.micromanager.data.ProcessorConfigurator;
-import org.micromanager.data.Coordinates;
 import org.micromanager.internal.utils.WindowPositioning;
 import org.micromanager.propertymap.MutablePropertyMapView;
-
 
 
 public class PseudoChannelConfigurator extends JFrame implements ProcessorConfigurator {
@@ -70,14 +65,34 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
 
    }
 
-   public void showGUI(boolean show) {
-      setVisible(show);
-   }
-
    @Override
    public void showGUI() {
+      // Put this here so we can call this function from the Acquirebutton hijack and we set the values correctly
+
+      System.out.println("new setSettings has been called!!!!!!!!");
+      SequenceSettings settings = studio_.acquisitions().getAcquisitionSettings();
+
+      int numSlices = java.lang.Math.max(1,settings.slices().size());
+      setUseSlices(settings.useSlices());
+      setSlices(numSlices);
+
+      int numChannels = 0;
+      for (int i=0; i<settings.channels().size(); i++){
+         numChannels += settings.channels().get(i).useChannel() ? 1 : 0;
+      }
+
+      if (!settings.channelGroup().equals("Emission filter")){
+         if (settings.useChannels()) {
+            setChannels(numChannels);
+         } else {
+            setChannels(1);
+         }
+      }
+
+      System.out.printf("PSEUDOCHANNELS:   slices %d, channels %d, useChannels %b%n", numSlices, numChannels, settings.useChannels());
       setVisible(true);
    }
+
 
    @Override
    public void cleanup() {
@@ -214,7 +229,9 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
 
    @Override
    public PropertyMap getSettings() {
-      PropertyMap.Builder builder = PropertyMaps.builder(); 
+
+      // Now return the values
+      PropertyMap.Builder builder = PropertyMaps.builder();
       builder.putInteger("channels", getChannels());
       builder.putString("slices", getSlices());
       builder.putBoolean("useSlices", getUseSlices());

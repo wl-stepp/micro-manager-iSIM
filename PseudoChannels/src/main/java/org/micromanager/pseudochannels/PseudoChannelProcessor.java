@@ -11,7 +11,7 @@ import org.micromanager.PropertyMaps;
 import org.micromanager.Studio;
 
 
-public class PseudoChannelProcessor extends Processor {
+public class PseudoChannelProcessor implements Processor {
 
    // Valid rotation values.
    public static final int C1 = 1;
@@ -48,7 +48,7 @@ public class PseudoChannelProcessor extends Processor {
     * Executes image transformation
     * First mirror the image if requested, than rotate as requested
     * 
-    * @param studio
+    * @param studio main Studio instance
     * @param image Image to be transformed.
     * @param useSlices Whether or not to do a ZStack
     * @param slices Number of Slices for the ZStack
@@ -58,8 +58,15 @@ public class PseudoChannelProcessor extends Processor {
    public static Image transformImage(Studio studio, Image image,
          boolean useSlices, String slices, int channels) {
 
-      int slices_int = Integer.valueOf(slices);
+      int slices_int;
+      if (useSlices) {
+         slices_int = Integer.valueOf(slices);
+      } else {
+         slices_int = 1;
+      }
       ImageProcessor proc = studio.data().ij().createProcessor(image);
+
+      //TODO: these changes should also be reflected in the metadata of the image.
 
       // Insert some metadata to indicate what we did to the image.
       PropertyMap.Builder builder;
@@ -75,22 +82,32 @@ public class PseudoChannelProcessor extends Processor {
       builder.putString("PseudoChannel-Slices", slices);
       Metadata newMetadata = image.getMetadata().copyBuilderPreservingUUID().userData(builder.build()).build();
 
-      //Do the actual processing of the image
+      // Do the actual processing of the image
       Coords.Builder coordsBuilder = image.getCoords().copyBuilder();
       Coords old_coords = image.getCoords();
-      int channel = old_coords.getT()%channels;
+
+      int channel = (int) java.lang.Math.floor((old_coords.getT() % (channels * slices_int)) /slices_int) ;
       coordsBuilder.c(channel);
 
-      int zPos = (int) java.lang.Math.floor((old_coords.getT()%slices_int)/channels);
-      if (useSlices) {
-         coordsBuilder.z(zPos);
+      int time = (int) java.lang.Math.floor(old_coords.getT()/channels/slices_int);
+
+      int zPos = old_coords.getT()%slices_int;
+      // switch the direction of z for every second frame
+      if (useSlices & channel%2 == 1){
+         zPos = slices_int - 1 - zPos;
       }
 
-      int time = (int) java.lang.Math.floor(old_coords.getT()/channels/slices_int);
+      if (useSlices){
+         coordsBuilder.z(zPos);
+      } else {
+         zPos = 0;
+      }
+
       coordsBuilder.t(time);
-      System.out.println(String.format("time %d, zPos %d, channel %d",time, zPos, channel));
-      Image result = studio.data().ij().createImage(proc, coordsBuilder.build(),
+
+      System.out.printf("slices %d, channels %d%n", slices_int, channels);
+      System.out.printf("time %d, zPos %d, channel %d%n",time, zPos, channel);
+      return studio.data().ij().createImage(proc, coordsBuilder.build(),
             newMetadata);
-      return result;
    }
 }

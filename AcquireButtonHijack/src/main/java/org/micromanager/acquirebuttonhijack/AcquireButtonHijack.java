@@ -30,7 +30,7 @@
  */
 
 
-package org.micromanager.plugins.acquirebuttonhijack;
+package org.micromanager.acquirebuttonhijack;
 
 import org.micromanager.MenuPlugin;
 import org.micromanager.Studio;
@@ -66,7 +66,7 @@ public class AcquireButtonHijack implements SciJavaPlugin, MenuPlugin {
          // We have never before shown our GUI, so now we need to create it.
          frame_ = new AcquireButtonHijackFrame(studio_);
       }
-      frame_.setVisible(false);
+      frame_.setVisible(!frame_.isVisible());
    }
 
    @Override

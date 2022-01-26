@@ -23,13 +23,6 @@ public class PythonEventServer implements SciJavaPlugin, MenuPlugin {
    private Studio studio_;
    private PythonEventServerFrame frame_;
 
-   /**
-    * This method receives the Studio object, which is the gateway to the
-    * Micro-Manager API. You should retain a reference to this object for the
-    * lifetime of your plugin. This method should not do anything except for
-    * store that reference, as Micro-Manager is still busy starting up at the
-    * time that this is called.
-    */
    @Override
    public void setContext(Studio studio) {
       studio_ = studio;
@@ -37,13 +30,10 @@ public class PythonEventServer implements SciJavaPlugin, MenuPlugin {
 
    @Override
    public void onPluginSelected() {
-      if (frame_ == null) {
-         // We have never before shown our GUI, so now we need to create it.
-         frame_ = new PythonEventServerFrame(studio_);
-      } else {
+      if (frame_ != null) {
          frame_.dispose();
-         frame_ = new PythonEventServerFrame(studio_);
       }
+      frame_ = new PythonEventServerFrame(studio_);
       frame_.setVisible(true);
    }
 

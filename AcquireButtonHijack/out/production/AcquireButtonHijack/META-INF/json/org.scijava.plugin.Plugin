@@ -1,1 +1,1 @@
-{"class":"org.micromanager.plugins.acquirebuttonhijack.AcquireButtonHijack","values":{"type":"org.micromanager.MenuPlugin"}}
+{"class":"org.micromanager.acquirebuttonhijack.AcquireButtonHijack","values":{"type":"org.micromanager.MenuPlugin"}}

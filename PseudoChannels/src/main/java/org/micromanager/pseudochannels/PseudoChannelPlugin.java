@@ -1,21 +1,22 @@
 
 package org.micromanager.pseudochannels;
 
+import org.micromanager.PluginManager;
 import org.micromanager.PropertyMaps;
 import org.micromanager.data.ProcessorConfigurator;
 import org.micromanager.data.ProcessorPlugin;
 import org.micromanager.data.ProcessorFactory;
 import org.micromanager.data.DataManager;
 
-import java.util.List;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 
 import org.micromanager.PropertyMap;
 import org.micromanager.Studio;
 
 import org.scijava.plugin.Plugin;
 import org.scijava.plugin.SciJavaPlugin;
-
-import java.io.IOException;
 
 @Plugin(type = ProcessorPlugin.class)
 public class PseudoChannelPlugin implements ProcessorPlugin, SciJavaPlugin {
@@ -30,6 +31,17 @@ public class PseudoChannelPlugin implements ProcessorPlugin, SciJavaPlugin {
 
    @Override
    public ProcessorConfigurator createConfigurator(PropertyMap settings) {
+      PluginManager pluginManager_ = studio_.getPluginManager();
+      PrintWriter writer = null;
+      try {
+         writer = new PrintWriter("C:/Users/stepp/Desktop/MMlog.txt", "UTF-8");
+      } catch (FileNotFoundException ex) {
+         ex.printStackTrace();
+      } catch (UnsupportedEncodingException ex) {
+         ex.printStackTrace();
+      }
+      writer.println(pluginManager_.getProcessorPlugins());
+      writer.close();
       return new PseudoChannelConfigurator(studio_, settings);
    }
 
