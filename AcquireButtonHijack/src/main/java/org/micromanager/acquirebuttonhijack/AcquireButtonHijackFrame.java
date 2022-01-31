@@ -24,6 +24,7 @@ import org.micromanager.PluginManager;
 import org.micromanager.Studio;
 import org.micromanager.acquisition.SequenceSettings;
 import org.micromanager.data.DataManager;
+import org.micromanager.data.Datastore;
 import org.micromanager.data.ProcessorConfigurator;
 import org.micromanager.internal.MMStudio;
 import org.micromanager.internal.dialogs.AcqControlDlg;
@@ -31,7 +32,6 @@ import org.micromanager.internal.utils.WindowPositioning;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.util.ArrayList;
@@ -104,13 +104,9 @@ public class AcquireButtonHijackFrame extends JFrame {
       }
 
       // Increase the number of frames and turn channels off if channels is selected and then start acquisition
-      button.addActionListener(new ActionListener() {
-         @Override
-         public void actionPerformed(ActionEvent e) {
-            Thread acq = new acqThread();
-            acq.start();
-         }
-
+      button.addActionListener(e -> {
+         Thread acq = new acqThread();
+         acq.start();
       });
 
 //      super.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -141,6 +137,10 @@ public class AcquireButtonHijackFrame extends JFrame {
 
          // Save the original settings so we can reset them later
          SequenceSettings settings = studio_.acquisitions().getAcquisitionSettings();
+         int index = AcquireButtonUtility.getCurrentMaxIndex(settings.root(), settings.prefix() + "_") + 1;
+         PipelineListener.storeSettings(settings, index);
+
+
          pseudoChannels.showGUI();
 
          SequenceSettings new_settings;
@@ -151,33 +151,39 @@ public class AcquireButtonHijackFrame extends JFrame {
          for (int i=0; i<settings.channels().size(); i++){
             numChannels += settings.channels().get(i).useChannel() ? 1 : 0;
          }
-         System.out.println(String.format("Channels: %d", numChannels));
-         System.out.println(String.format("Slices: %d", numSlices));
+         System.out.printf("Channels: %d%n", numChannels);
+         System.out.printf("Slices: %d%n", numSlices);
 
          // Special case if Emission filters are on, because we want to keep the channels from micro-manager.
          if (settings.channelGroup().equals("Emission filter")) {
             new_settings = settings.copyBuilder().intervalMs(0)
                                                  .numFrames(settings.numFrames()*numSlices)
-                                                 .useSlices(false).slices(new ArrayList<>()).build();
+                                                 .useSlices(false).slices(new ArrayList<>())
+                                                 .save(false).build();
          } else if (settings.useChannels()) {
             new_settings = settings.copyBuilder().intervalMs(0)
                                                  .useChannels(false).channels(new ArrayList<>())
                                                  .numFrames(settings.numFrames()*numChannels*numSlices)
-                                                 .useSlices(false).slices(new ArrayList<>()).build();
+                                                 .useSlices(false).slices(new ArrayList<>())
+                                                 .save(false).build();
          } else {
             new_settings = settings.copyBuilder().intervalMs(0)
                                                  .useChannels(false).channels(new ArrayList<>())
                                                  .numFrames(settings.numFrames()*numSlices)
-                                                 .useSlices(false).slices(new ArrayList<>()).build();
+                                                 .useSlices(false).slices(new ArrayList<>())
+                                                 .save(false).build();
          }
-//         System.out.println(new_settings.slices().toString());
-//         studio_.acquisitions().setAcquisitionSettings(new_settings);
-         studio_.acquisitions().runAcquisitionWithSettings(new_settings,false);
+
+         Datastore datastore = studio_.acquisitions().runAcquisitionWithSettings(new_settings,false);
+
+         datastore.setName(settings.prefix() + "_" + index);
+
          addLog(String.valueOf(new_settings.useChannels()));
          addLog(new_settings.channels().toString());
          addLog(String.valueOf(new_settings.useSlices()));
          addLog(new_settings.slices().toString());
          studio_.acquisitions().setAcquisitionSettings(settings);
+
       }
    }
 

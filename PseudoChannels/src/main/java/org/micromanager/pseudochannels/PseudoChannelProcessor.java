@@ -10,6 +10,8 @@ import org.micromanager.PropertyMap;
 import org.micromanager.PropertyMaps;
 import org.micromanager.Studio;
 
+import java.io.IOException;
+
 
 public class PseudoChannelProcessor implements Processor {
 
@@ -64,10 +66,9 @@ public class PseudoChannelProcessor implements Processor {
       } else {
          slices_int = 1;
       }
-      ImageProcessor proc = studio.data().ij().createProcessor(image);
+//      ImageProcessor proc = studio.data().ij().createProcessor(image);
 
       //TODO: these changes should also be reflected in the metadata of the image.
-
       // Insert some metadata to indicate what we did to the image.
       PropertyMap.Builder builder;
       PropertyMap userData = image.getMetadata().getUserData();
@@ -105,9 +106,9 @@ public class PseudoChannelProcessor implements Processor {
 
       coordsBuilder.t(time);
 
+
       System.out.printf("slices %d, channels %d%n", slices_int, channels);
       System.out.printf("time %d, zPos %d, channel %d%n",time, zPos, channel);
-      return studio.data().ij().createImage(proc, coordsBuilder.build(),
-            newMetadata);
+      return image.copyWith(coordsBuilder.build(), newMetadata);
    }
 }
