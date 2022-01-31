@@ -25,7 +25,8 @@ public class PseudoChannelFactory implements ProcessorFactory {
       processor_ = new PseudoChannelProcessor(studio_,
               settings_.getInteger("channels", 1),
               settings_.getString("slices", "10"),
-              settings_.getBoolean("useSlices", false));
+              settings_.getBoolean("useSlices", false),
+              settings_.getDoubleList("slicePositions", new double[1]));
       return processor_;
    }
 }

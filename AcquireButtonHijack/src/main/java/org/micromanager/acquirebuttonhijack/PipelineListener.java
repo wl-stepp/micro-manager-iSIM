@@ -46,7 +46,7 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
     }
 
 
-    public static void storeSettings(SequenceSettings newSettings, int newAcqNumber_){
+    public void storeSettings(SequenceSettings newSettings, int newAcqNumber_){
         settings_ = newSettings;
         acqNumber_ = newAcqNumber_;
     }
@@ -79,7 +79,6 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
     @Subscribe
     public void onAcquisitionEnded(AcquisitionEndedEvent event) throws IOException{
 
-
         int numSlices = Math.max(1,settings_.slices().size());
         // How many channels are actually active?
         int numChannels = 0;
@@ -90,12 +89,20 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
         RewritableDatastore my_store = studio_.data().createRewritableRAMDatastore();
 
         JSONObject summaryMetadata = ((MMStudio) studio_).getAcquisitionEngine2010().getSummaryMetadata();
+        System.out.println(summaryMetadata);
+
+        String fileName = settings_.prefix() + "_" + acqNumber_;
+        String acqPath = settings_.root() + File.separator + fileName;
+
         SummaryMetadata summary = null;
         try {
             CommentsHelper.setSummaryComment(my_store, MDUtils.getComments(summaryMetadata));
             summaryMetadata.put("Slices", numSlices);
             summaryMetadata.put("Channels", numChannels);
             summaryMetadata.put("Frames", settings_.numFrames());
+            summaryMetadata.put("z-step_um", settings_.sliceZStepUm());
+            summaryMetadata.put("Interval_ms", settings_.intervalMs());
+            summaryMetadata.put("Directory", acqPath);
             summary = DefaultSummaryMetadata.fromPropertyMap(
                     NonPropertyMapJSONFormats.summaryMetadata().fromJSON(
                             summaryMetadata.toString()));
@@ -113,21 +120,21 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
             my_store.putImage(new_image);
         }
 
-        String fileName = settings_.prefix() + "_" + acqNumber_;
-        String acqPath = settings_.root() + File.separator + fileName;
 
         //Save the store with the correct summary metadata
         if (settings_.save()) {
             try {
                 System.out.println(acqPath);
                 JavaUtils.createDirectory(settings_.root());
-                my_store.save(Datastore.SaveMode.MULTIPAGE_TIFF, acqPath);
+                my_store.save(settings_.saveMode(), acqPath);
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
 
         // Close the original acquisition window and open one with the new data
+        // This does not seem very necessary, but if the user saves from the old datastore manually, the metadata
+        // would again be corrupted.
         DisplayWindow display = studio_.displays().getDisplays(event.getStore()).get(0);
         studio_.displays().removeViewer(display);
         my_store.setName(fileName);

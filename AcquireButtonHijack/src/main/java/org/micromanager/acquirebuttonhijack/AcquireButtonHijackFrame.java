@@ -60,7 +60,7 @@ public class AcquireButtonHijackFrame extends JFrame {
    private Studio studio_;
    private AcqControlDlg acw_;
    private PluginManager pluginManager_;
-
+   private PipelineListener server_;
 
    public AcquireButtonHijackFrame(Studio studio){
       super("AcquireButtonHijack");
@@ -109,10 +109,10 @@ public class AcquireButtonHijackFrame extends JFrame {
          acq.start();
       });
 
-//      super.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-      PipelineListener server = new PipelineListener(studio_, this);
-      server.init();
-      server.start();
+      // super.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+      server_ = new PipelineListener(studio_, this);
+      server_.init();
+      server_.start();
 
       addLog("Hijack Successful");
    }
@@ -138,9 +138,10 @@ public class AcquireButtonHijackFrame extends JFrame {
          // Save the original settings so we can reset them later
          SequenceSettings settings = studio_.acquisitions().getAcquisitionSettings();
          int index = AcquireButtonUtility.getCurrentMaxIndex(settings.root(), settings.prefix() + "_") + 1;
-         PipelineListener.storeSettings(settings, index);
-
-
+         server_.storeSettings(settings, index);
+         // We modified the showGUI function to store the settings in pseudoChannels, because that function exists
+         // for all ProcessorConfigurators and it didn't seem a good idea to have a direct dependency to PseudoChannels,
+         // because there were problems with different ClassLoaders.
          pseudoChannels.showGUI();
 
          SequenceSettings new_settings;
@@ -175,7 +176,6 @@ public class AcquireButtonHijackFrame extends JFrame {
          }
 
          Datastore datastore = studio_.acquisitions().runAcquisitionWithSettings(new_settings,false);
-
          datastore.setName(settings.prefix() + "_" + index);
 
          addLog(String.valueOf(new_settings.useChannels()));
@@ -183,7 +183,6 @@ public class AcquireButtonHijackFrame extends JFrame {
          addLog(String.valueOf(new_settings.useSlices()));
          addLog(new_settings.slices().toString());
          studio_.acquisitions().setAcquisitionSettings(settings);
-
       }
    }
 

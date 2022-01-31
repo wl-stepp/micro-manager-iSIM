@@ -11,28 +11,27 @@ import org.micromanager.PropertyMaps;
 import org.micromanager.Studio;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 
 public class PseudoChannelProcessor implements Processor {
-
-   // Valid rotation values.
-   public static final int C1 = 1;
-   public static final int C2 = 2;
-   public static final int C3 = 3;
-   public static final int C4 = 4;
 
    private final Studio studio_;
    int channels_;
    String slices_;
    boolean useSlices_;
+   double[] slicePositions_;
 
 
    public PseudoChannelProcessor(Studio studio, int channels, String slices,
-         boolean useSlices) {
+                                 boolean useSlices, double[] slicePositions) {
       studio_ = studio;
       channels_ = channels;
       slices_ = slices;
       useSlices_ = useSlices;
+      slicePositions_ =  slicePositions;
    }
 
    /**
@@ -43,7 +42,7 @@ public class PseudoChannelProcessor implements Processor {
       // to allow processing old data, we do not check for the camera when no 
       // camera was selected
       context.outputImage(
-              transformImage(studio_, image, useSlices_, slices_, channels_));
+              transformImage(studio_, image, useSlices_, slices_, channels_, slicePositions_));
    }
 
    /**
@@ -58,17 +57,18 @@ public class PseudoChannelProcessor implements Processor {
     * @return - Transformed Image, otherwise a copy of the input
     */
    public static Image transformImage(Studio studio, Image image,
-         boolean useSlices, String slices, int channels) {
+         boolean useSlices, String slices, int channels, double[] slicePositions) {
 
       int slices_int;
       if (useSlices) {
-         slices_int = Integer.valueOf(slices);
+         slices_int = Integer.parseInt(slices);
       } else {
          slices_int = 1;
       }
 //      ImageProcessor proc = studio.data().ij().createProcessor(image);
 
-      //TODO: these changes should also be reflected in the metadata of the image.
+      //TODO: Make this also possible in different order for channels/slices
+
       // Insert some metadata to indicate what we did to the image.
       PropertyMap.Builder builder;
       PropertyMap userData = image.getMetadata().getUserData();
@@ -100,15 +100,22 @@ public class PseudoChannelProcessor implements Processor {
 
       if (useSlices){
          coordsBuilder.z(zPos);
+         if (slicePositions != null) {
+            newMetadata = newMetadata.copyBuilderPreservingUUID().zPositionUm(slicePositions[zPos]).build();
+         }
       } else {
          zPos = 0;
       }
 
       coordsBuilder.t(time);
 
-
       System.out.printf("slices %d, channels %d%n", slices_int, channels);
       System.out.printf("time %d, zPos %d, channel %d%n",time, zPos, channel);
+      System.out.println("Slices: " + Arrays.toString(slicePositions));
       return image.copyWith(coordsBuilder.build(), newMetadata);
    }
+
+//   public static void setSlicePositions(float[] newSlicePositions){
+//      slicePositions_ = newSlicePositions;
+//   }
 }

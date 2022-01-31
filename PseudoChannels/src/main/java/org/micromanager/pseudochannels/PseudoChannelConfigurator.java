@@ -2,9 +2,7 @@
 package org.micromanager.pseudochannels;
 
 import java.awt.*;
-import java.util.Arrays;
-import java.util.List;
-
+import java.util.ArrayList;
 import javax.swing.*;
 
 import org.micromanager.PropertyMap;
@@ -18,18 +16,8 @@ import org.micromanager.propertymap.MutablePropertyMapView;
 
 public class PseudoChannelConfigurator extends JFrame implements ProcessorConfigurator {
 
-   private static final String DEFAULT_MIRRORED = "Whether or not to mirror the image flipper";
-   private static final String DEFAULT_ROTATION = "How much to rotate the image flipper";
-   private static final String C1 = "1";
-   private static final String C2 = "2";
-   private static final String C3 = "3";
-   private static final String C4 = "4";
-   private static final String[] RS = {C1, C2, C3, C4};
-   private static final List<Integer> R_INTS =
-      Arrays.asList(new Integer[] {PseudoChannelProcessor.C1,
-         PseudoChannelProcessor.C2, PseudoChannelProcessor.C3, PseudoChannelProcessor.C4});
-   private static final String EXAMPLE_ICON_PATH =
-                        "/org/micromanager/icons/R.png";
+   private static final String DEFAULT_SLICES = "Whether or not to use slices";
+
 
    private final int frameXPos_ = 300;
    private final int frameYPos_ = 300;
@@ -42,6 +30,7 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
    private javax.swing.JLabel jLabelchannel;
    private javax.swing.JCheckBox slicesCheckBox_;
    private javax.swing.JTextField slicesTextField_;
+   private ArrayList<Double> slicePositions_;
 
    public PseudoChannelConfigurator(Studio studio, PropertyMap settings) {
       studio_ = studio;
@@ -50,9 +39,7 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
       initComponents();
 
       Boolean useSlices = settings.getBoolean("useSlices",
-            defaults_.getBoolean(DEFAULT_MIRRORED, false));
-      Integer rotation = settings.getInteger("channels",
-            defaults_.getInteger(DEFAULT_ROTATION, PseudoChannelProcessor.C1));
+            defaults_.getBoolean(DEFAULT_SLICES, false));
 
       slicesCheckBox_.setSelected(useSlices);
       slicesTextField_.setText(settings.getString("slices", "1"));
@@ -72,6 +59,9 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
       System.out.println("new setSettings has been called!!!!!!!!");
       SequenceSettings settings = studio_.acquisitions().getAcquisitionSettings();
 
+      ArrayList<Double> slicePositions_ = settings.slices();
+      setSlicePositions(slicePositions_);
+
       int numSlices = java.lang.Math.max(1,settings.slices().size());
       setUseSlices(settings.useSlices());
       setSlices(numSlices);
@@ -89,10 +79,12 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
          }
       }
 
+
       System.out.printf("PSEUDOCHANNELS:   slices %d, channels %d, useChannels %b%n", numSlices, numChannels, settings.useChannels());
       setVisible(true);
    }
 
+   private void setSlicePositions(ArrayList<Double> newSlicePositions_) {slicePositions_ = newSlicePositions_;}
 
    @Override
    public void cleanup() {
@@ -210,22 +202,13 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
        return slicesTextField_.getText();
    }
 
-   public final int getChannels() {
-      if (C2.equals((String) channelComboBox_.getSelectedItem())) {
-         return PseudoChannelProcessor.C2;
-      }
-      if (C3.equals((String) channelComboBox_.getSelectedItem())) {
-         return PseudoChannelProcessor.C3;
-      }
-      if (C4.equals((String)channelComboBox_.getSelectedItem())) {
-         return PseudoChannelProcessor.C4;
-      }
-      return PseudoChannelProcessor.C1;
-   }
-
    public final boolean getUseSlices() {
       return slicesCheckBox_.isSelected();
    }
+
+   public int getChannels(){return channelComboBox_.getSelectedIndex() + 1;}
+
+   public ArrayList<Double> getSlicePositions(){return slicePositions_;}
 
    @Override
    public PropertyMap getSettings() {
@@ -233,6 +216,7 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
       // Now return the values
       PropertyMap.Builder builder = PropertyMaps.builder();
       builder.putInteger("channels", getChannels());
+      builder.putDoubleList("slicePositions", getSlicePositions());
       builder.putString("slices", getSlices());
       builder.putBoolean("useSlices", getUseSlices());
       return builder.build();
