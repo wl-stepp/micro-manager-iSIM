@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="TimeInjector">
+    <output-path>$PROJECT_DIR$/out/artifacts/TimeInjector</output-path>
+    <root id="archive" name="TimeInjector.jar">
+      <element id="module-output" name="TimeInjector" />
+    </root>
+  </artifact>
+</component>

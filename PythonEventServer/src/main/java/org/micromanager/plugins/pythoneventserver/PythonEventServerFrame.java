@@ -2,27 +2,18 @@
 package org.micromanager.plugins.pythoneventserver;
 
 import com.google.common.eventbus.Subscribe;
-import com.sun.org.apache.xalan.internal.xsltc.dom.ArrayNodeListIterator;
 import mmcorej.CMMCore;
-import mmcorej.org.json.JSONArray;
-import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
-import org.bushe.swing.event.annotation.RuntimeTopicEventSubscriber;
 import org.micromanager.Studio;
 import org.micromanager.acquisition.AcquisitionEndedEvent;
 import org.micromanager.acquisition.AcquisitionSequenceStartedEvent;
-import org.micromanager.acquisition.AcquisitionStartedEvent;
 import org.micromanager.acquisition.SequenceSettings;
 import org.micromanager.data.DataProviderHasNewImageEvent;
 import org.micromanager.data.Datastore;
-import org.micromanager.data.DatastoreClosingEvent;
 import org.micromanager.data.Image;
-import org.micromanager.display.internal.event.DataViewerAddedEvent;
-import org.micromanager.display.internal.event.DataViewerWillCloseEvent;
 import org.micromanager.events.*;
 import org.micromanager.internal.ConfigGroupPad;
 import org.micromanager.internal.MMStudio;
-import org.micromanager.internal.dialogs.AcqControlDlg;
 import org.micromanager.internal.interfaces.AcqSettingsListener;
 import org.micromanager.internal.utils.WindowPositioning;
 import org.micromanager.internal.zmq.ZMQUtil;
@@ -39,7 +30,7 @@ import static org.zeromq.ZMQ.*;
 /**
  * ZMQ based Server that relays Micro-Manager events to python
  * <p>
- * THis is called and started when PyhtonEventServer Plugin is
+ * THis is called and started when PythonEventServer Plugin is
  * started from Micro-Manager. It starts a Thread that uses a
  * ZMQ PUB socket to publish events that can be subscribed to from
  * python. This can run in parallel with pycromanager to make use
@@ -68,16 +59,14 @@ public class PythonEventServerFrame extends JFrame {
    private final JTextArea logTextArea;
    private Socket socket_;
    private final ServerThread server;
-   private final JPanel panel = new JPanel();
    public ZMQUtil util_;
-   private AcqControlDlg acw_;
    private long lastStageTime;
 
 
    public PythonEventServerFrame(Studio studio) {
       super("Python Event Server GUI");
       studio_ = studio;
-      acw_ = ((MMStudio) studio_).uiManager().getAcquisitionWindow();
+//      AcqControlDlg acw_ = ((MMStudio) studio_).uiManager().getAcquisitionWindow();
       // Set up the server
       server = new ServerThread();
       server.init();
@@ -116,6 +105,7 @@ public class PythonEventServerFrame extends JFrame {
       DefaultCaret caret = (DefaultCaret)logTextArea.getCaret();
       caret.setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
 
+      JPanel panel = new JPanel();
       BoxLayout boxLayout = new BoxLayout(panel, BoxLayout.Y_AXIS);
       panel.setLayout(boxLayout);
       panel.add(title);
@@ -276,7 +266,7 @@ public class PythonEventServerFrame extends JFrame {
          addLog("AcquisitionEndedEvent");
       }
 
-      
+
 //      @Subscribe
 //      public void onAcquisitionStarted(AcquisitionStartedEvent event){
 //         sendJSON(event, "Acquisition ");
