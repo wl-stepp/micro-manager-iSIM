@@ -25,7 +25,9 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
    private final Studio studio_;
    private final MutablePropertyMapView defaults_;
 
+   private int acqOrderMode_;
    private javax.swing.JComboBox channelComboBox_;
+   private boolean useChannels_;
    private javax.swing.JLabel jLabel1;
    private javax.swing.JLabel jLabelchannel;
    private javax.swing.JCheckBox slicesCheckBox_;
@@ -38,7 +40,9 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
 
       initComponents();
 
-      Boolean useSlices = settings.getBoolean("useSlices",
+      boolean useChannels = settings.getBoolean("useChannels", true);
+
+      boolean useSlices = settings.getBoolean("useSlices",
             defaults_.getBoolean(DEFAULT_SLICES, false));
 
       slicesCheckBox_.setSelected(useSlices);
@@ -59,6 +63,9 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
       System.out.println("new setSettings has been called!!!!!!!!");
       SequenceSettings settings = studio_.acquisitions().getAcquisitionSettings();
 
+      int acqOrderMode = settings.acqOrderMode();
+      setAcqOrderMode(acqOrderMode);
+
       ArrayList<Double> slicePositions_ = settings.slices();
       setSlicePositions(slicePositions_);
 
@@ -71,8 +78,19 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
          numChannels += settings.channels().get(i).useChannel() ? 1 : 0;
       }
 
+      boolean useChannels;
       if (!settings.channelGroup().equals("Emission filter")){
+         setUseChannels(true);
+         useChannels = true;
          if (settings.useChannels()) {
+            setChannels(numChannels);
+         } else {
+            setChannels(1);
+         }
+      } else {
+         setUseChannels(false);
+         useChannels = false;
+         if (settings.useChannels()){
             setChannels(numChannels);
          } else {
             setChannels(1);
@@ -80,7 +98,7 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
       }
 
 
-      System.out.printf("PSEUDOCHANNELS:   slices %d, channels %d, useChannels %b%n", numSlices, numChannels, settings.useChannels());
+      System.out.printf("PSEUDOCHANNELS:   slices %d, channels %d, useChannels %b, acqOrder %d%n", numSlices, numChannels, useChannels, acqOrderMode);
       setVisible(true);
    }
 
@@ -190,9 +208,13 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
       studio_.data().notifyPipelineChanged();
    }
 
+   public void setAcqOrderMode(int acqOrder){acqOrderMode_ = acqOrder;}
+
    public void setChannels(int channels) {
       channelComboBox_.setSelectedIndex(channels-1);
    }
+
+   public void setUseChannels(boolean useChannels){useChannels_ = useChannels;}
 
    public void setSlices(int slices) {slicesTextField_.setText(String.valueOf(slices));}
 
@@ -206,7 +228,11 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
       return slicesCheckBox_.isSelected();
    }
 
+   public int getAcqOrderMode(){return acqOrderMode_;}
+
    public int getChannels(){return channelComboBox_.getSelectedIndex() + 1;}
+
+   public boolean getUseChannels(){return useChannels_;}
 
    public ArrayList<Double> getSlicePositions(){return slicePositions_;}
 
@@ -215,7 +241,9 @@ public class PseudoChannelConfigurator extends JFrame implements ProcessorConfig
 
       // Now return the values
       PropertyMap.Builder builder = PropertyMaps.builder();
+      builder.putInteger("acqOrderMode", getAcqOrderMode());
       builder.putInteger("channels", getChannels());
+      builder.putBoolean("useChannels", getUseChannels());
       builder.putDoubleList("slicePositions", getSlicePositions());
       builder.putString("slices", getSlices());
       builder.putBoolean("useSlices", getUseSlices());

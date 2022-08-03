@@ -23,7 +23,9 @@ public class PseudoChannelFactory implements ProcessorFactory {
    @Override
    public Processor createProcessor() {
       processor_ = new PseudoChannelProcessor(studio_,
+              settings_.getInteger("acqOrderMode", 0),
               settings_.getInteger("channels", 1),
+              settings_.getBoolean("useChannels", true),
               settings_.getString("slices", "10"),
               settings_.getBoolean("useSlices", false),
               settings_.getDoubleList("slicePositions", new double[1]));

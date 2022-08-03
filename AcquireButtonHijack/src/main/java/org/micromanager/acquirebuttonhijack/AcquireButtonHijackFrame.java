@@ -20,6 +20,7 @@
  */
 package org.micromanager.acquirebuttonhijack;
 
+import org.micromanager.LogManager;
 import org.micromanager.PluginManager;
 import org.micromanager.Studio;
 import org.micromanager.acquisition.SequenceSettings;
@@ -28,6 +29,7 @@ import org.micromanager.data.Datastore;
 import org.micromanager.data.ProcessorConfigurator;
 import org.micromanager.internal.MMStudio;
 import org.micromanager.internal.dialogs.AcqControlDlg;
+import org.micromanager.internal.utils.JavaUtils;
 import org.micromanager.internal.utils.WindowPositioning;
 
 import javax.swing.*;
@@ -62,7 +64,7 @@ public class AcquireButtonHijackFrame extends JFrame {
    private PluginManager pluginManager_;
    private PipelineListener server_;
 
-   public AcquireButtonHijackFrame(Studio studio){
+   public AcquireButtonHijackFrame(Studio studio) {
       super("AcquireButtonHijack");
       studio_ = studio;
       pluginManager_ = studio.getPluginManager();
@@ -71,7 +73,7 @@ public class AcquireButtonHijackFrame extends JFrame {
       // Adjust the window
       JLabel title = new JLabel("AcquireButtonHijack");
       title.setFont(new Font("Arial", Font.BOLD, 14));
-      title.setMaximumSize( new Dimension(200, 30));
+      title.setMaximumSize(new Dimension(200, 30));
       title.setAlignmentX(CENTER_ALIGNMENT);
 
       logTextArea = new JTextArea(30, 100);
@@ -93,12 +95,12 @@ public class AcquireButtonHijackFrame extends JFrame {
       // Get the Acquire! Button and strip of the functionality, so we can put something of our own.
       acw_ = ((MMStudio) studio_).uiManager().getAcquisitionWindow();
       JPanel panel0 = (JPanel) acw_.getContentPane().getComponent(0);
-      JPanel panel1 =(JPanel) panel0.getComponent(2);
+      JPanel panel1 = (JPanel) panel0.getComponent(2);
       JPanel panel2 = (JPanel) panel1.getComponent(1);
       JButton button = (JButton) panel2.getComponent(0);
       button.setText("Acquire");
       ActionListener[] listeners = button.getActionListeners();
-      for (ActionListener listener : listeners){
+      for (ActionListener listener : listeners) {
          button.removeActionListener(listener);
          System.out.println(listener.toString());
       }
@@ -115,28 +117,46 @@ public class AcquireButtonHijackFrame extends JFrame {
       server_.start();
 
       addLog("Hijack Successful");
+
+
    }
 
-   void addLog(String eventMsg){
+   void addLog (String eventMsg){
       String currentText = logTextArea.getText();
-      String newEvent =  new Date() + " " + eventMsg;
+      String newEvent = new Date() + " " + eventMsg;
       logTextArea.setText(newEvent + "\n" + currentText);
    }
 
-   void setPseudoChannels(ProcessorConfigurator newPseudoChannels){
+   void setPseudoChannels (ProcessorConfigurator newPseudoChannels){
       pseudoChannels = newPseudoChannels;
       addLog("Received new PseudoChannels");
    }
 
+
    public class acqThread extends Thread{
       public void run(){
          System.out.println("ACQ running");
+
          // Call apply SettingsfromGUI with a small trick
          PropertyChangeEvent e = new PropertyChangeEvent(1, "test",0,1);
          acw_.propertyChange(e);
 
          // Save the original settings so we can reset them later
          SequenceSettings settings = studio_.acquisitions().getAcquisitionSettings();
+
+         // Try to make the save path otherwise show error
+         LogManager logs = studio_.getLogManager();
+         if (settings.save()) {
+            try {
+               JavaUtils.createDirectory(settings.root());
+            } catch (Exception exc) {
+               logs.showError(exc);
+               exc.printStackTrace();
+               return;
+            }
+         }
+
+
          int index = AcquireButtonUtility.getCurrentMaxIndex(settings.root(), settings.prefix() + "_") + 1;
          server_.storeSettings(settings, index);
          // We modified the showGUI function to store the settings in pseudoChannels, because that function exists
@@ -144,7 +164,7 @@ public class AcquireButtonHijackFrame extends JFrame {
          // because there were problems with different ClassLoaders.
          pseudoChannels.showGUI();
 
-         SequenceSettings new_settings;
+         SequenceSettings.Builder new_settings_builder;
          // How many slices do we have to account for?
          int numSlices = java.lang.Math.max(1,settings.slices().size());
          // How many channels are actually active?
@@ -157,23 +177,25 @@ public class AcquireButtonHijackFrame extends JFrame {
 
          // Special case if Emission filters are on, because we want to keep the channels from micro-manager.
          if (settings.channelGroup().equals("Emission filter")) {
-            new_settings = settings.copyBuilder().intervalMs(0)
+            new_settings_builder = settings.copyBuilder().intervalMs(0)
                                                  .numFrames(settings.numFrames()*numSlices)
                                                  .useSlices(false).slices(new ArrayList<>())
-                                                 .save(false).build();
+                                                 .save(false);
          } else if (settings.useChannels()) {
-            new_settings = settings.copyBuilder().intervalMs(0)
+            new_settings_builder = settings.copyBuilder().intervalMs(0)
                                                  .useChannels(false).channels(new ArrayList<>())
                                                  .numFrames(settings.numFrames()*numChannels*numSlices)
                                                  .useSlices(false).slices(new ArrayList<>())
-                                                 .save(false).build();
+                                                 .save(false);
          } else {
-            new_settings = settings.copyBuilder().intervalMs(0)
+            new_settings_builder = settings.copyBuilder().intervalMs(0)
                                                  .useChannels(false).channels(new ArrayList<>())
                                                  .numFrames(settings.numFrames()*numSlices)
                                                  .useSlices(false).slices(new ArrayList<>())
-                                                 .save(false).build();
+                                                 .save(false);
          }
+         SequenceSettings new_settings = new_settings_builder.cameraTimeout(999999).build();
+
 
          Datastore datastore = studio_.acquisitions().runAcquisitionWithSettings(new_settings,false);
          datastore.setName(settings.prefix() + "_" + index);

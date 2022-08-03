@@ -2,17 +2,23 @@
 package org.micromanager.plugins.pythoneventserver;
 
 import com.google.common.eventbus.Subscribe;
+import com.sun.org.apache.xalan.internal.xsltc.dom.ArrayNodeListIterator;
 import mmcorej.CMMCore;
 import mmcorej.org.json.JSONArray;
 import mmcorej.org.json.JSONException;
 import mmcorej.org.json.JSONObject;
+import org.bushe.swing.event.annotation.RuntimeTopicEventSubscriber;
 import org.micromanager.Studio;
 import org.micromanager.acquisition.AcquisitionEndedEvent;
 import org.micromanager.acquisition.AcquisitionSequenceStartedEvent;
 import org.micromanager.acquisition.AcquisitionStartedEvent;
 import org.micromanager.acquisition.SequenceSettings;
 import org.micromanager.data.DataProviderHasNewImageEvent;
+import org.micromanager.data.Datastore;
+import org.micromanager.data.DatastoreClosingEvent;
+import org.micromanager.data.Image;
 import org.micromanager.display.internal.event.DataViewerAddedEvent;
+import org.micromanager.display.internal.event.DataViewerWillCloseEvent;
 import org.micromanager.events.*;
 import org.micromanager.internal.ConfigGroupPad;
 import org.micromanager.internal.MMStudio;
@@ -26,13 +32,7 @@ import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.text.DefaultCaret;
 import java.awt.*;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Iterator;
+import java.util.*;
 
 import static org.zeromq.ZMQ.*;
 
@@ -63,17 +63,16 @@ import static org.zeromq.ZMQ.*;
 public class PythonEventServerFrame extends JFrame {
 
    private final JCheckBox liveCheckBox_;
-   private Studio studio_;
+   private final Studio studio_;
    private ConfigGroupPad pad_;
    private final JTextArea logTextArea;
-   private final JScrollPane scrollPane;
    private Socket socket_;
-   private ServerThread server;
-   private JPanel panel = new JPanel();
-   private BoxLayout boxLayout = new BoxLayout(panel, BoxLayout.Y_AXIS);
+   private final ServerThread server;
+   private final JPanel panel = new JPanel();
    public ZMQUtil util_;
    private AcqControlDlg acw_;
    private long lastStageTime;
+
 
    public PythonEventServerFrame(Studio studio) {
       super("Python Event Server GUI");
@@ -90,7 +89,6 @@ public class PythonEventServerFrame extends JFrame {
       HashSet<ClassLoader> classLoaders = new HashSet<>();
       classLoaders.add(core.getClass().getClassLoader());
       util_ = new ZMQUtil(classLoaders, new String[]{});
-
 
       // Add a function that closes the server when the window is closed
       super.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -114,10 +112,11 @@ public class PythonEventServerFrame extends JFrame {
       logTextArea = new JTextArea(30,100);
       logTextArea.setAlignmentX(CENTER_ALIGNMENT);
 
-      scrollPane = new JScrollPane( logTextArea );
+      JScrollPane scrollPane = new JScrollPane(logTextArea);
       DefaultCaret caret = (DefaultCaret)logTextArea.getCaret();
       caret.setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
 
+      BoxLayout boxLayout = new BoxLayout(panel, BoxLayout.Y_AXIS);
       panel.setLayout(boxLayout);
       panel.add(title);
       panel.add(scrollPane);
@@ -142,6 +141,7 @@ public class PythonEventServerFrame extends JFrame {
 
 
    public class ServerThread extends Thread implements AcqSettingsListener {
+      private ImageListener imageListener_;
 
 
       public void init(){
@@ -171,7 +171,6 @@ public class PythonEventServerFrame extends JFrame {
       public void onConfigGroupChanged(ConfigGroupChangedEvent event) {
          addLog("ConfigGroupChangedEvent " + event.getGroupName());
       }
-
 
       @Subscribe
       public void onGUIRefresh(GUIRefreshEvent event){
@@ -220,7 +219,7 @@ public class PythonEventServerFrame extends JFrame {
       // Subscribe to the events that are sent by the special RefreshGUI call above
       @Subscribe
       public void onSettingsChanged(CustomSettingsEvent event){
-         sendJSON(event);
+         sendJSON(event, "Settings ");
          addLog("CustomSettingsEvent " + event.getDevice() + ":"
                  + event.getProperty() + "=" + event.getValue());
       }
@@ -241,15 +240,15 @@ public class PythonEventServerFrame extends JFrame {
       // These events are posted by the custom settingslistener implemented in a second thread in SettingsListener
       @Subscribe
       public void onCustomMDA(CustomMDAEvent event){
-         sendJSON(event);
+         sendJSON(event, "Settings ");
          addLog("CustomMDAEvent");
       }
 
 
       @Subscribe
       public void onExposureChanged(ExposureChangedEvent event) {
-         sendJSON(event);
-         addLog("ExposureChangedEvent " + event.getNewExposureTime());
+         sendJSON(event, "Settings ");
+//         addLog("ExposureChangedEvent " + event.getNewExposureTime());
       }
 
       @Subscribe
@@ -258,61 +257,86 @@ public class PythonEventServerFrame extends JFrame {
          System.out.println(now - lastStageTime);
 
          // Limit the frequency of these events
-         sendJSON(event);
-         addLog("StagePositionChangedEvent");
+         sendJSON(event, "Hardware ");
+//         addLog("StagePositionChangedEvent");
          lastStageTime = now;
       }
 
       @Subscribe
       public void onXYStagePositionChanged(XYStagePositionChangedEvent event){
-         sendJSON(event);
-         addLog("XYStagePositionChangedEvent");
+         sendJSON(event, "Hardware ");
+//         addLog("XYStagePositionChangedEvent");
       }
 
       @Subscribe
-      public void onAcquisitionEnded(AcquisitionEndedEvent event)  {
-         sendJSON(event);
+      public void onAcquisitionEnded(AcquisitionEndedEvent event) {
+         sendJSON(event, "Acquisition ");
+         imageListener_.close();
+         imageListener_ = null;
          addLog("AcquisitionEndedEvent");
       }
 
-      @Subscribe
-      public void onAcquisitionStarted(AcquisitionStartedEvent event){
-         sendJSON(event);
-         event.getDatastore().registerForEvents(this);
-         addLog("AcquisitionStartedEvent");
-      }
+      
+//      @Subscribe
+//      public void onAcquisitionStarted(AcquisitionStartedEvent event){
+//         sendJSON(event, "Acquisition ");
+//         store_ = event.getDatastore();
+//         store_.registerForEvents(this);
+//         addLog("AcquisitionStartedEvent");
+//         addLog(store_.getName());
+//      }
 
-      public void onWindowAddedEvent(DataViewerAddedEvent event) {
-         sendJSON(event);
-         event.getDataViewer().getDataProvider().registerForEvents(this);
-         addLog("DataViewerAddedEvent");
-      }
+//      @Subscribe
+//      public void onDataViewerAddedEvent(DataViewerAddedEvent event) {
+//         sendJSON(event, "GUI ");
+//         event.getDataViewer().getDataProvider().registerForEvents(this);
+//         addLog("DataViewerAddedEvent");
+//      }
+//
+//      @Subscribe
+//      public void onDataViewerWillCloseEvent(DataViewerWillCloseEvent event){
+//         addLog(event.getDataViewer().getName());
+//         addLog("closed");
+//         event.getDataViewer().getDataProvider().unregisterForEvents(this);
+//      }
+
 
       @Subscribe
-      public void onAcquisitionStarted(AcquisitionSequenceStartedEvent event) {
-         sendJSON(event);
+      public void onAcquisitionSequenceStarted(AcquisitionSequenceStartedEvent event) {
+         sendJSON(event, "Acquisition ");
+         imageListener_ = new ImageListener(studio_, this, event.getDatastore());
          addLog("AcquisitionSequenceStartedEvent");
       }
 
-      @Subscribe
-      public void onNewImage(DataProviderHasNewImageEvent event){
-         sendJSON(event);
-         addLog("DataProviderHasNewImageEvent");
-      }
+//      @Subscribe
+//      public void onDataStoreClosingEvent(DatastoreClosingEvent event){
+//         addLog(event.getDatastore().getName());
+//         addLog("Closing");
+//         event.getDatastore().unregisterForEvents(this);
+//      }
 
-      @Subscribe
-      public void onDataViewerAddedEvent(DataViewerAddedEvent event){
-         addLog("DataViewerAddedEvent");
-      }
+//      @Subscribe
+//      public void onDataProviderHasNewImageEvent(DataProviderHasNewImageEvent event){
+//         sendJSON(event, "NewImage ");
+//         addLog("DataProviderHasNewImageEvent");
+//      }
+
+//      @Subscribe
+//      public void onDataViewerAddedEvent(DataViewerAddedEvent event){
+//         addLog("DataViewerAddedEvent");
+//      }
 
       @Subscribe
       public void onLiveMode(LiveModeEvent event) {
          if (event.isOn() & liveCheckBox_.isSelected()) {
-            studio_.getSnapLiveManager().getDisplay().getDataProvider().registerForEvents(this);
+            imageListener_ = new ImageListener(studio_, this,
+                    (Datastore) studio_.getSnapLiveManager().getDisplay().getDataProvider());
          } else {
-            studio_.getSnapLiveManager().getDisplay().getDataProvider().unregisterForEvents(this);
+            if (imageListener_ != null){
+               imageListener_.close();
+            }
          }
-         sendJSON(event);
+         sendJSON(event, "LiveMode ");
          addLog("LiveModeEvent");
       }
 
@@ -330,17 +354,29 @@ public class PythonEventServerFrame extends JFrame {
          logTextArea.setText(newEvent + "\n" + currentText);
        }
 
-      public void sendJSON(Object event){
-         JSONObject json = new JSONObject();
-         util_.serialize(event, json, 5556);
-         socket_.send("StandardEvent " + json);
-      }
+       public void sendImage(DataProviderHasNewImageEvent event){
+          Image image = event.getImage();
+          ArrayList<Float> imageParams = new ArrayList<>();
+          imageParams.add((float) image.getWidth());
+          imageParams.add((float) image.getHeight());
+          imageParams.add((float) image.getCoords().getT());
+          imageParams.add((float) image.getCoords().getC());
+          imageParams.add((float) image.getCoords().getZ());
+          imageParams.add((float) image.getMetadata().getElapsedTimeMs(0));
+          socket_.sendMore("NewImage " + imageParams);
+          socket_.sendMore(String.valueOf(image.getBytesPerComponent()));
+          socket_.send(image.getByteArray());
+          addLog("NewImage");
+       }
 
+      public void sendJSON(Object event, String type){
+            JSONObject json = new JSONObject();
+            util_.serialize(event, json, 5556);
+            socket_.send(type + json);
+         }
+      }
    }
 
-
-
-}
 
 
 

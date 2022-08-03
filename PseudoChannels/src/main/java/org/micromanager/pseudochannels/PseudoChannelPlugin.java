@@ -31,17 +31,17 @@ public class PseudoChannelPlugin implements ProcessorPlugin, SciJavaPlugin {
 
    @Override
    public ProcessorConfigurator createConfigurator(PropertyMap settings) {
-      PluginManager pluginManager_ = studio_.getPluginManager();
-      PrintWriter writer = null;
-      try {
-         writer = new PrintWriter("C:/Users/stepp/Desktop/MMlog.txt", "UTF-8");
-      } catch (FileNotFoundException ex) {
-         ex.printStackTrace();
-      } catch (UnsupportedEncodingException ex) {
-         ex.printStackTrace();
-      }
-      writer.println(pluginManager_.getProcessorPlugins());
-      writer.close();
+//      PluginManager pluginManager_ = studio_.getPluginManager();
+//      PrintWriter writer = null;
+//      try {
+//         writer = new PrintWriter("C:/Users/stepp/Desktop/MMlog.txt", "UTF-8");
+//      } catch (FileNotFoundException ex) {
+//         ex.printStackTrace();
+//      } catch (UnsupportedEncodingException ex) {
+//         ex.printStackTrace();
+//      }
+//      writer.println(pluginManager_.getProcessorPlugins());
+//      writer.close();
       return new PseudoChannelConfigurator(studio_, settings);
    }
 
@@ -71,9 +71,11 @@ public class PseudoChannelPlugin implements ProcessorPlugin, SciJavaPlugin {
       return "Copyright Willi Stepp EPFL, 2021";
    }
 
-   public ProcessorConfigurator getConfigurator(int channels, int slices, boolean useSlices) {
+   public ProcessorConfigurator getConfigurator(int acqOrderMode, int channels,boolean useChannels, int slices, boolean useSlices) {
       PropertyMap.Builder builder = PropertyMaps.builder();
+      builder.putInteger("acqOrderMode", acqOrderMode);
       builder.putInteger("channels", channels);
+      builder.putBoolean("useChannels", useChannels);
       builder.putString("slices", String.valueOf(slices));
       builder.putBoolean("useSlices", useSlices);
       System.out.println(builder.build());

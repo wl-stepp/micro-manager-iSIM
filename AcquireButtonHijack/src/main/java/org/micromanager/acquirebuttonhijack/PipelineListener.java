@@ -14,7 +14,6 @@ import org.micromanager.display.DisplayWindow;
 import org.micromanager.internal.MMStudio;
 import org.micromanager.internal.interfaces.AcqSettingsListener;
 import org.micromanager.internal.propertymap.NonPropertyMapJSONFormats;
-import org.micromanager.internal.utils.JavaUtils;
 import org.micromanager.internal.utils.MDUtils;
 
 import java.io.File;
@@ -37,7 +36,6 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
         dataManager = studio_.data();
         pluginManager_ = studio_.plugins();
         acq_hijack_ = acq_hijack;
-
     }
 
     public void init(){
@@ -53,7 +51,7 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
 
     @Subscribe
     public void onPipelineChanged(NewPipelineEvent event) {
-        System.out.println("Pipeline Changed!");
+        acq_hijack_.addLog("Pipeline Changed!");
         // Configure the PseudoChannel Processor
         boolean pseudoChannelsSet = false;
         for (int i=0; i<dataManager.getApplicationPipelineConfigurators(true).size(); i++){
@@ -63,12 +61,13 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
             if (names[names.length - 1].equals("PseudoChannelConfigurator")){
                 acq_hijack_.setPseudoChannels(plugin);
                 pseudoChannelsSet = true;
-                System.out.println("PseudoChannels Found");
+                acq_hijack_.addLog("PseudoChannels Found");
                 break;
             }
         }
 
         if (!pseudoChannelsSet) {
+            acq_hijack_.addLog(pluginManager_.getProcessorPlugins().toString());
             dataManager.addAndConfigureProcessor(pluginManager_.getProcessorPlugins()
                     .get("org.micromanager.pseudochannels.PseudoChannelPlugin"));
             acq_hijack_.setPseudoChannels(dataManager.getApplicationPipelineConfigurators(true)
@@ -78,7 +77,6 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
 
     @Subscribe
     public void onAcquisitionEnded(AcquisitionEndedEvent event) throws IOException{
-
         int numSlices = Math.max(1,settings_.slices().size());
         // How many channels are actually active?
         int numChannels = 0;
@@ -87,6 +85,7 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
         }
 
         RewritableDatastore my_store = studio_.data().createRewritableRAMDatastore();
+        studio_.displays().manage(my_store);
 
         JSONObject summaryMetadata = ((MMStudio) studio_).getAcquisitionEngine2010().getSummaryMetadata();
         System.out.println(summaryMetadata);
@@ -109,7 +108,6 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-
         my_store.setSummaryMetadata(summary);
 
         // Transfer all images from the original Datastore to this one.
@@ -119,13 +117,13 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
             Image new_image= store.getImage(coord);
             my_store.putImage(new_image);
         }
+        my_store.freeze();
 
 
         //Save the store with the correct summary metadata
         if (settings_.save()) {
             try {
                 System.out.println(acqPath);
-                JavaUtils.createDirectory(settings_.root());
                 my_store.save(settings_.saveMode(), acqPath);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -138,8 +136,14 @@ public class PipelineListener extends Thread implements AcqSettingsListener {
         DisplayWindow display = studio_.displays().getDisplays(event.getStore()).get(0);
         studio_.displays().removeViewer(display);
         my_store.setName(fileName);
-        studio_.displays().createDisplay(my_store);
+        DisplayWindow new_display = studio_.displays().createDisplay(my_store);
+        System.out.println(studio_.displays().isManaged(my_store));
         display.close();
+        display = null;
+        store.close();
+        store = null;
+        System.gc();
+        acq_hijack_.addLog("Java memory free");
     }
 
     @Override
